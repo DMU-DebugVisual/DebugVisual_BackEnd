@@ -79,7 +79,7 @@ public class UserService {
     }
 
 
-    public Optional<UserResponseDTO> getUserByUserId(Integer userId) {
+    public Optional<UserResponseDTO> getUserByUserId(String userId) {
         return userRepository.findByUserId(userId)
                 .map(user -> UserResponseDTO.builder()
                         .userNum(user.getUserNum())
