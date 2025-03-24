@@ -31,7 +31,7 @@ public class User {
     private String name; // 사용자 이름
 
     @Column(length = 20)
-    private String role = "user"; // 사용자 권한 (기본값: user)
+    private String role = "USER"; // 사용자 권한 (기본값: USER)
 
     @Column(columnDefinition = "TEXT")
     private String profileInfo; // 프로필 정보
