@@ -5,7 +5,7 @@ import lombok.Getter;
 @Getter
 @Builder
 public class LoginResponseDTO {
-    private String email;
+    private String userId;
     private String name;
     private String role;
     private boolean success;

@@ -19,7 +19,7 @@ public class User {
     private Long userNum; // 유저 고유 번호 (PK)
 
     @Column(nullable = false, unique = true)
-    private Integer userId; // 유저 ID (UK, AUTO_INCREMENT)
+    private String userId; // 유저 ID (UK, AUTO_INCREMENT)
 
     @Column(length = 100, nullable = false)
     private String email; // 이메일 주소
