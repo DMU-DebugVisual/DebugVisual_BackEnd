@@ -6,11 +6,13 @@ import com.dmu.debug_visual.dto.SignUpDTO;
 import com.dmu.debug_visual.dto.UserResponseDTO;
 import com.dmu.debug_visual.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+@Tag(name = "사용자 관리 API", description = "사용자 관련 CRUD 및 인증 기능을 제공하는 컨트롤러")
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
