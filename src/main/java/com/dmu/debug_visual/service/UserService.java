@@ -31,7 +31,7 @@ public class UserService {
                 .passwordHash(hashedPassword)
                 .name(dto.getName())
                 .profileInfo(dto.getProfileInfo())
-                .role("user")
+                .role("USER")
                 .isActive(true)
                 .joinDate(LocalDateTime.now())
                 .build();
