@@ -13,24 +13,4 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())  // ✅ 람다 방식으로 변경
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/users/**",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/swagger-resources/**",
-                                "/webjars/**"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
-                .formLogin(form -> form.disable())      // ✅ 변경된 비활성화 방식
-                .httpBasic(basic -> basic.disable());   // ✅ 변경된 비활성화 방식
-
-        return http.build();
-    }
 }
