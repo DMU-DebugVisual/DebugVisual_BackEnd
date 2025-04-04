@@ -13,7 +13,6 @@ public class UserResponseDTO {
     private String email;
     private String name;
     private String role;
-    private String profileInfo;
     private Boolean isActive;
     private LocalDateTime joinDate;
 }

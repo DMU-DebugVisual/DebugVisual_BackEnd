@@ -29,7 +29,6 @@ public class UserService {
                 .email(dto.getEmail())
                 .password(hashedPassword)
                 .name(dto.getName())
-                .profileInfo(dto.getProfileInfo())
                 .role(User.Role.USER)
                 .isActive(true)
                 .joinDate(LocalDateTime.now())
@@ -92,7 +91,6 @@ public class UserService {
                 .email(user.getEmail())
                 .name(user.getName())
                 .role(user.getRole().name())
-                .profileInfo(user.getProfileInfo())
                 .isActive(user.getIsActive())
                 .joinDate(user.getJoinDate())
                 .build();

@@ -34,9 +34,6 @@ public class User {
     @Column(length = 20, nullable = false)
     private Role role;
 
-    @Column(columnDefinition = "TEXT")
-    private String profileInfo; // 프로필 정보
-
     @Column(length = 36, unique = true)
     private String connectId; // 웹소켓 연결용 고유 ID
 
