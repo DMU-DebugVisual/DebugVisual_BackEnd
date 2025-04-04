@@ -25,23 +25,28 @@ public class User {
     private String email; // 이메일 주소
 
     @Column(length = 255, nullable = false)
-    private String passwordHash; // 비밀번호
+    private String password; // 비밀번호
 
     @Column(length = 50, nullable = false)
     private String name; // 사용자 이름
 
-    @Column(length = 20)
-    private String role = "USER"; // 사용자 권한 (기본값: USER)
-
-    @Column(columnDefinition = "TEXT")
-    private String profileInfo; // 프로필 정보
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20, nullable = false)
+    private Role role;
 
     @Column(length = 36, unique = true)
     private String connectId; // 웹소켓 연결용 고유 ID
 
+    @Builder.Default
     @Column
     private Boolean isActive = true; // 계정 활성화 상태
 
+    @Builder.Default
     @Column(updatable = false)
     private LocalDateTime joinDate = LocalDateTime.now(); // 가입 일자
+
+    public enum Role {
+        USER, ADMIN
+    }
+
 }
