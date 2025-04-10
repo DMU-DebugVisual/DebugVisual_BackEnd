@@ -1,13 +1,13 @@
 package com.dmu.debug_visual.dto;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
-@Getter
-@Setter
-public class SignUpDTO {
+@Data
+public class AdminUserCreateDTO {
     private String userId;
     private String email;
     private String password;
     private String name;
+    private String role; // 관리자만 이 필드를 쓸 수 있음
 }
+
