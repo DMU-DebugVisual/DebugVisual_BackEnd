@@ -9,6 +9,7 @@ import com.dmu.debug_visual.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import util.JwtTokenProvider;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -19,6 +20,8 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
+
 
     // 회원가입
     public UserResponseDTO registerUser(SignUpDTO dto) {
@@ -59,10 +62,13 @@ public class UserService {
                     .build();
         }
 
+        String token = jwtTokenProvider.generateToken(user.getUserId(), user.getRole().name());
+
         return LoginResponseDTO.builder()
                 .userId(user.getUserId())
                 .name(user.getName())
                 .role(user.getRole().name())
+                .token(token)
                 .success(true)
                 .message("로그인 성공")
                 .build();

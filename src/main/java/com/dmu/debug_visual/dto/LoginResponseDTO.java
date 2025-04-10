@@ -9,6 +9,7 @@ public class LoginResponseDTO {
     private String name;
     private String role;
     private boolean success;
+    private String token;
     private String message;
 }
 
