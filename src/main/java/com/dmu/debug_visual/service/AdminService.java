@@ -82,7 +82,7 @@ public class AdminService {
     // 사용자 복구
     public boolean activateUser(String userId) {
         Optional<User> user = userRepository.findByUserId(userId);
-        if (user.isPresent() && Boolean.TRUE.equals(user.get().getIsActive())) {
+        if (user.isPresent() && Boolean.FALSE.equals(user.get().getIsActive())) {
             user.get().setIsActive(true);
             userRepository.save(user.get());
             return true;
