@@ -1,5 +1,4 @@
 # Debug Visual Backend
-https://respected-jitterbug-a9b.notion.site/Commit-Issue-PR-1bcdd1e1f08280db8de2c766a5892210?pvs=4
 
 ## 프로젝트 설명
 
