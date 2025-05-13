@@ -2,6 +2,8 @@ version: '3.8'
 
 services:
   backend:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     build: .
     ports:
       - "8080:8080"
@@ -13,7 +15,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: hmjeoung33
 
   db:
-    image: mysql:9.0
+    image: mysql:8.0
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: hmjeoung33
@@ -21,4 +23,26 @@ services:
     ports:
       - "3306:3306"
 
+  python-compiler:
+    build:
+      context: ./python
+    image: python-compiler
+    container_name: python-compiler
+    stdin_open: true
+    tty: true
 
+  java-compiler:
+    build:
+      context: ./java
+    image: java-compiler
+    container_name: java-compiler
+    stdin_open: true
+    tty: true
+
+  c-compiler:
+    build:
+      context: ./c
+    image: c-compiler
+    container_name: c-compiler
+    stdin_open: true
+    tty: true
