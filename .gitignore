@@ -35,3 +35,14 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# 테스트용 소스 및 결과 파일 (컴파일러 테스트용)
+main.c
+main.java
+main.py
+main.out
+input.txt
+output.txt
+compile_error.txt
+runtime_error.txt
+entrypoint.sh

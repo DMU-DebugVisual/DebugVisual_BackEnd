@@ -1,0 +1,47 @@
+# 빌드 결과물
+.gradle
+/out
+/bin
+dist/
+*.class
+*.jar
+*.war
+
+# IDE 설정 파일
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.factorypath
+.settings/
+.sts4-cache
+.vscode/
+
+# 테스트용/임시 파일
+main.c
+main.java
+main.py
+main.out
+input.txt
+output.txt
+compile_error.txt
+runtime_error.txt
+
+# 기타
+*.log
+*.tmp
+*.swp
+.DS_Store
+
+# Git
+.git
+.gitignore
+
+# OS/에디터 캐시
+Thumbs.db
+ehthumbs.db
+*.bak
+*.old
+*.orig
