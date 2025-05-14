@@ -1,6 +1,6 @@
 package com.dmu.debug_visual.controller;
 
-import com.dmu.debug_visual.dto.CodeRequest;
+import com.dmu.debug_visual.dto.CodeRequestDTO;
 import com.dmu.debug_visual.service.CompilerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,7 +21,7 @@ public class CompilerController {
     @PostMapping("/{language}")
     public ResponseEntity<String> compile(
             @PathVariable String language,
-            @RequestBody CodeRequest request) {
+            @RequestBody CodeRequestDTO request) {
 
         try {
             String result = compilerService.execute(language, request.getCode(), request.getInput());

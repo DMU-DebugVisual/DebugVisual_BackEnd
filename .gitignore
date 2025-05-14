@@ -45,4 +45,3 @@ input.txt
 output.txt
 compile_error.txt
 runtime_error.txt
-entrypoint.sh
