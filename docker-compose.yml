@@ -6,19 +6,25 @@ services:
     ports:
       - "8080:8080"
     depends_on:
+      - flask
       - db
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/debugdb
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: hmjeoung33
 
+  flask:
+    build:
+      context: ./flask
+    container_name: python-compiler
+    ports:
+      - "5050:5050"
+
   db:
-    image: mysql:9.0
+    image: mysql:8.0
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: hmjeoung33
-      MYSQL_DATABASE: debugdb
+      MYSQL_DATABASE: debugvi33!
     ports:
       - "3306:3306"
-
-

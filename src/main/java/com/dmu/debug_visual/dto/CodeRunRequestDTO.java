@@ -1,9 +1,13 @@
 package com.dmu.debug_visual.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Data;
+import lombok.*;
 
 @Data
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class CodeRunRequestDTO {
 
     @Schema(description = "사용자가 작성한 소스코드", example = "print('Hello')")
