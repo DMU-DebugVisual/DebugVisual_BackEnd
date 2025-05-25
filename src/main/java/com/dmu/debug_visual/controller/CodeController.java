@@ -1,9 +1,13 @@
 package com.dmu.debug_visual.controller;
 
 import com.dmu.debug_visual.dto.CodeRunRequestDTO;
+import com.dmu.debug_visual.dto.CodeRunResponseDTO;
 import com.dmu.debug_visual.service.CodeExecutionService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,22 +23,43 @@ public class CodeController {
 
     private final CodeExecutionService codeExecutionService;
 
+    private final ObjectMapper objectMapper;
+
+
+    @PostMapping("/run")
     @Operation(
             summary = "코드 실행",
             description = "입력받은 코드와 입력값을 언어에 따라 실행하고 결과를 반환합니다."
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "성공적으로 실행됨"),
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "성공적으로 실행됨",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = CodeRunResponseDTO.class),
+                            examples = @ExampleObject(
+                                    value = """
+                                        {
+                                          "stdout": "Hello",
+                                          "stderr": "",
+                                          "exitCode": 0,
+                                          "success": true
+                                        }
+                                        """
+                            )
+                    )
+            ),
             @ApiResponse(responseCode = "400", description = "컴파일 또는 실행 에러", content = @Content),
             @ApiResponse(responseCode = "500", description = "서버 오류", content = @Content)
     })
-    @PostMapping("/run")
-    public ResponseEntity<String> runCode(@RequestBody CodeRunRequestDTO requestDTO) {
-        String result = codeExecutionService.runCode(
+    public ResponseEntity<CodeRunResponseDTO> runCode(@RequestBody CodeRunRequestDTO requestDTO) {
+        CodeRunResponseDTO response = codeExecutionService.runCode(
                 requestDTO.getCode(),
                 requestDTO.getInput(),
                 requestDTO.getLang()
         );
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(response);
     }
+
 }
