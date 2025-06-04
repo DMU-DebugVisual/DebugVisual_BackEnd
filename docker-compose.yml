@@ -20,5 +20,3 @@ services:
       MYSQL_DATABASE: debugdb
     ports:
       - "3306:3306"
-
-
