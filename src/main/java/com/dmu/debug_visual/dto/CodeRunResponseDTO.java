@@ -11,6 +11,7 @@ import lombok.*;
 @Builder
 @Schema(description = "코드 실행 결과 응답")
 public class CodeRunResponseDTO {
+
     @Schema(description = "표준 출력 결과", example = "Hello")
     private String stdout;
 
@@ -22,4 +23,7 @@ public class CodeRunResponseDTO {
 
     @Schema(description = "성공 여부", example = "true")
     private boolean success;
+
+    @Schema(description = "코드 AST 또는 GPT 설명 (visualize 요청 시)", example = "1+2=3")
+    private String ast;
 }
