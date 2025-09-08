@@ -23,4 +23,10 @@ jobs:
 
       - name: SSH and deploy
         run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "cd ~ && ./deploy.sh"
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "\
+            set -euo pipefail; \
+            cd ~; \
+            if [ ! -f ./deploy.sh ]; then echo '❌ deploy.sh not found in ~'; exit 1; fi; \
+            sed -i 's/\r$//' ./deploy.sh || true; \
+            chmod +x ./deploy.sh; \
+            ./deploy.sh"
