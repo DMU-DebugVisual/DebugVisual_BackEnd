@@ -8,6 +8,11 @@ permissions:
   contents: read
   packages: write
 
+# (선택) 동시 배포 충돌 방지
+concurrency:
+  group: debugvisual-ec2-deploy
+  cancel-in-progress: true
+
 jobs:
   build-push-deploy:
     runs-on: ubuntu-latest
@@ -44,26 +49,22 @@ jobs:
             ghcr.io/dmu-debugvisual/debugvisual-backend:latest
             ghcr.io/dmu-debugvisual/debugvisual-backend:${{ github.sha }}
 
-
-
-
       # EC2 배포 (익명 pull)
       - name: Deploy on EC2 (compose pull/up)
-  uses: appleboy/ssh-action@v1.2.0
-  with:
-    host: ${{ secrets.EC2_HOST }}
-    username: ${{ secrets.EC2_USER }}     # ec2-user
-    key: ${{ secrets.EC2_KEY }}           # PEM 전체 내용
-    script: |
-      set -e
-      LOCK=/tmp/debugvisual.deploy.lock
-      (
-        flock -n 9 || { echo 'Another deploy is running. Skip.'; exit 0; }
-        cd ~/apps/debugvisual
-        docker logout ghcr.io || true     # 익명 pull 강제
-        docker compose pull --ignore-pull-failures backend
-        docker compose up -d --wait --remove-orphans backend
-        docker image prune -af || true
-        curl -skI https://api.zivorp.com/healthz | head -n1
-      ) 9>$LOCK
-
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}     # ec2-user
+          key: ${{ secrets.EC2_KEY }}           # PEM 전체 내용
+          script: |
+            set -e
+            LOCK=/tmp/debugvisual.deploy.lock
+            (
+              flock -n 9 || { echo 'Another deploy is running. Skip.'; exit 0; }
+              cd ~/apps/debugvisual
+              docker logout ghcr.io || true     # 익명 pull 강제
+              docker compose pull --ignore-pull-failures backend
+              docker compose up -d --wait --remove-orphans backend
+              docker image prune -af || true
+              curl -skI https://api.zivorp.com/healthz | head -n1
+            ) 9>$LOCK
