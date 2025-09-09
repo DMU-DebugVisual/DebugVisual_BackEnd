@@ -44,29 +44,26 @@ jobs:
             ghcr.io/dmu-debugvisual/debugvisual-backend:latest
             ghcr.io/dmu-debugvisual/debugvisual-backend:${{ github.sha }}
 
+
+
+
       # EC2 배포 (익명 pull)
       - name: Deploy on EC2 (compose pull/up)
-        env:
-          HOST: ${{ secrets.EC2_HOST }}
-          USER: ${{ secrets.EC2_USER }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_KEY }}" > ~/.ssh/id_rsa
-          sed -i 's/\r$//' ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+  uses: appleboy/ssh-action@v1.2.0
+  with:
+    host: ${{ secrets.EC2_HOST }}
+    username: ${{ secrets.EC2_USER }}     # ec2-user
+    key: ${{ secrets.EC2_KEY }}           # PEM 전체 내용
+    script: |
+      set -e
+      LOCK=/tmp/debugvisual.deploy.lock
+      (
+        flock -n 9 || { echo 'Another deploy is running. Skip.'; exit 0; }
+        cd ~/apps/debugvisual
+        docker logout ghcr.io || true     # 익명 pull 강제
+        docker compose pull --ignore-pull-failures backend
+        docker compose up -d --wait --remove-orphans backend
+        docker image prune -af || true
+        curl -skI https://api.zivorp.com/healthz | head -n1
+      ) 9>$LOCK
 
-          # (선택) 배포 충돌 방지용 락
-          ssh "$USER@$HOST" "bash -s" << 'EOSSH'
-          set -e
-          LOCK=/tmp/debugvisual.deploy.lock
-          (
-            flock -n 9 || { echo 'Another deploy is running. Skip.'; exit 0; }
-            cd ~/apps/debugvisual
-            docker logout ghcr.io || true   # 익명 pull 강제
-            docker compose pull --ignore-pull-failures backend
-            docker compose up -d --wait --remove-orphans backend
-            docker image prune -af || true
-            curl -skI https://api.zivorp.com/healthz | head -n1
-          ) 9>$LOCK
-          EOSSH
