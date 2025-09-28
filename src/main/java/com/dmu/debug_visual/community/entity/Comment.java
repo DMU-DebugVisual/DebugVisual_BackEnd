@@ -26,6 +26,7 @@ public class Comment {
     @ManyToOne
     private Comment parent; // 대댓글일 경우 상위 댓글
 
+    @Builder.Default
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
     private List<Comment> children = new ArrayList<>();
 

@@ -34,6 +34,12 @@ public class CommentService {
         if (dto.getParentId() != null && dto.getParentId() != 0) {
             parent = commentRepository.findById(dto.getParentId())
                     .orElseThrow(() -> new RuntimeException("상위 댓글 없음"));
+
+            // 대댓글의 부모가 null이 아니면(즉, 대댓글에 대댓글을 다는 경우) 에러 발생
+            if (parent.getParent() != null) {
+                throw new IllegalArgumentException("대댓글에는 답글을 달 수 없습니다.");
+            }
+
             builder.parent(parent);
 
             if (!user.getUserNum().equals(parent.getWriter().getUserNum())) {
