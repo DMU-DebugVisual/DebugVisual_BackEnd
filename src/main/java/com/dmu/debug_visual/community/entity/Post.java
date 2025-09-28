@@ -27,9 +27,6 @@ public class Post {
     @Column(name = "tag")
     private List<PostTag> tags;
 
-
-//    private String imageUrl;
-
     @ManyToOne
     private User writer;
 

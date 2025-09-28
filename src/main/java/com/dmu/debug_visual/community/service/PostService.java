@@ -27,7 +27,6 @@ public class PostService {
                 .title(dto.getTitle())
                 .content(dto.getContent())
                 .tags(dto.getTags())
-//                .imageUrl(dto.getImageUrl())
                 .writer(user)
                 .build();
 
@@ -62,7 +61,6 @@ public class PostService {
                 .content(post.getContent())
                 .writer(post.getWriter().getName()) // 수정
                 .tags(post.getTags())
-//                .imageUrl(post.getImageUrl())
                 .createdAt(post.getCreatedAt())
                 .likeCount(likeRepository.countByPost(post))
                 .build();
