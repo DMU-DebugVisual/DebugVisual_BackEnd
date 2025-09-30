@@ -92,6 +92,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // CORS preflight 허용
                         // dev 환경에서 인증 없이 접근을 허용할 경로
                         .requestMatchers(
                                 "/api/admin/**",
