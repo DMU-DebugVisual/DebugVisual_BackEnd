@@ -8,7 +8,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -77,9 +76,7 @@ public class SecurityConfig {
                                 "/api/users/signup",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/api/code/**",
-                                "/api/comments",
-                                "/api/posts"
+                                "/api/code/**"
                         ).permitAll()
                         .anyRequest().permitAll()
                 );
@@ -103,9 +100,7 @@ public class SecurityConfig {
                                 "/api/users/signup",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/api/code/**",
-                                "/api/comments",
-                                "/api/posts"
+                                "/api/code/**"
                         ).permitAll()
                         // 그 외 모든 요청은 인증을 요구하도록 설정 (!dev 환경과 유사하게)
                         .anyRequest().authenticated()
