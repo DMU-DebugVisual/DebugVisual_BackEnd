@@ -55,6 +55,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/login", "/api/users/signup").permitAll()
                         .requestMatchers("/api/code/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/comments/**").permitAll()
+                        .requestMatchers("/ws-collab/**").permitAll()
 
                         // 2. USER 권한이 필요한 경로
                         .requestMatchers("/api/posts/**").hasRole("USER")
@@ -62,6 +63,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/report/**").hasRole("USER")
                         .requestMatchers("/api/comments/**").hasRole("USER")
                         .requestMatchers("/api/files/upload").hasRole("USER")
+                        .requestMatchers("/api/collab-rooms").hasRole("USER")
 
                         // 3. 나머지 모든 요청은 인증된 사용자만 접근 가능 (ADMIN 경로 포함)
                         .anyRequest().authenticated()
@@ -90,6 +92,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/login", "/api/users/signup").permitAll()
                         .requestMatchers("/api/code/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/comments/**").permitAll()
+                        .requestMatchers("/ws-collab/**").permitAll()
 
                         // 2. ADMIN 권한이 필요한 경로
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
@@ -100,6 +103,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/report/**").hasRole("USER")
                         .requestMatchers("/api/comments/**").hasRole("USER")
                         .requestMatchers("/api/files/upload").hasRole("USER")
+                        .requestMatchers("/api/collab-rooms").hasRole("USER")
 
 
                         // 4. 나머지 모든 요청은 인증된 사용자만 접근 가능

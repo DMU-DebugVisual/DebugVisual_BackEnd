@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Collab Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; gap: 20px; padding: 10px; }
+        .panel { border: 1px solid #ccc; padding: 10px; border-radius: 5px; }
+        textarea { width: 400px; height: 300px; }
+        #log { width: 400px; height: 400px; overflow-y: scroll; border: 1px solid #eee; padding: 5px; font-size: 12px; background-color: #f9f9f9; white-space: pre-wrap; }
+        input { margin-bottom: 5px; padding: 4px; width: 95%; }
+        button { width: 100%; padding: 8px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+<div class="panel">
+    <h2>Connection</h2>
+    <input type="text" id="roomId" placeholder="Enter Room ID"><br>
+    <input type="text" id="myUserId" placeholder="Enter My User ID"><br>
+    <input type="text" id="jwtToken" placeholder="Enter JWT Token" style="width: 95%;"><br>
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button>
+    <hr>
+    <h2>Grant Permission</h2>
+    <input type="text" id="targetUserId" placeholder="Target User ID"><br>
+    <button onclick="grantPermission()">Grant Write Permission</button>
+</div>
+<div class="panel">
+    <h2>Code Editor</h2>
+    <textarea id="editor" onkeyup="sendCodeUpdate()"></textarea>
+</div>
+<div class="panel">
+    <h2>Received Messages Log</h2>
+    <pre id="log"></pre>
+</div>
+
+<script>
+    let stompClient = null;
+
+    function log(message) {
+        const logElement = document.getElementById('log');
+        logElement.innerText += message + '\n';
+        logElement.scrollTop = logElement.scrollHeight; // Auto-scroll
+    }
+
+    function connect() {
+        const roomId = document.getElementById('roomId').value;
+        const jwtToken = document.getElementById('jwtToken').value;
+        if (!roomId || !jwtToken) {
+            alert('Room ID와 JWT Token을 모두 입력하세요.');
+            return;
+        }
+
+        const headers = {
+            'Authorization': 'Bearer ' + jwtToken
+        };
+
+        const socket = new SockJS('http://localhost:8080/ws-collab');
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect(headers, function (frame) {
+            log('Connected: ' + frame);
+
+            // 1. 코드 업데이트 구독
+            stompClient.subscribe('/topic/room/' + roomId + '/code', function (message) {
+                const received = JSON.parse(message.body);
+                log('Code updated by ' + (received.senderName || received.senderId) + '.');
+                document.getElementById('editor').value = received.content;
+            });
+
+            // 2. 권한 변경 구독
+            stompClient.subscribe('/topic/room/' + roomId + '/permission', function (message) {
+                const received = JSON.parse(message.body);
+                log('Permission granted to ' + (received.targetUserName || received.targetUserId) + ' by ' + (received.senderName || received.senderId));
+            });
+
+            // 3. 시스템 메시지 (입장/퇴장) 구독
+            stompClient.subscribe('/topic/room/' + roomId + '/system', function (message) {
+                const received = JSON.parse(message.body);
+                log('[SYSTEM] ' + received.content);
+            });
+
+        }, function(error) {
+            log('STOMP error: ' + error);
+        });
+    }
+
+    function sendCodeUpdate() {
+        if (stompClient && stompClient.connected) {
+            const roomId = document.getElementById('roomId').value;
+            const myUserId = document.getElementById('myUserId').value;
+            const content = document.getElementById('editor').value;
+
+            stompClient.send("/app/room/" + roomId + "/code-update", {}, JSON.stringify({
+                'senderId': myUserId,
+                'content': content
+            }));
+        }
+    }
+
+    function grantPermission() {
+        if (stompClient && stompClient.connected) {
+            const roomId = document.getElementById('roomId').value;
+            const myUserId = document.getElementById('myUserId').value;
+            const targetUserId = document.getElementById('targetUserId').value;
+
+            stompClient.send("/app/room/" + roomId + "/grant-permission", {}, JSON.stringify({
+                'senderId': myUserId,
+                'targetUserId': targetUserId
+            }));
+        }
+    }
+
+    function disconnect() {
+        if (stompClient !== null) {
+            stompClient.disconnect();
+        }
+        log("Disconnected");
+    }
+</script>
+</body>
+</html>
