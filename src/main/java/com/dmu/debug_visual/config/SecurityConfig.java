@@ -45,6 +45,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/comments/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/posts/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/notifications/**").hasAnyRole("USER", "ADMIN")
@@ -78,6 +79,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/api/code/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/comments/**").permitAll()
                         .anyRequest().permitAll()
                 );
 
