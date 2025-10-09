@@ -62,7 +62,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/notifications/**").hasRole("USER")
                         .requestMatchers("/api/report/**").hasRole("USER")
                         .requestMatchers("/api/comments/**").hasRole("USER")
-                        .requestMatchers("/api/files/upload").hasRole("USER")
+                        .requestMatchers("/api/files/**").hasRole("USER")
                         .requestMatchers("/api/collab-rooms").hasRole("USER")
 
                         // 3. 나머지 모든 요청은 인증된 사용자만 접근 가능 (ADMIN 경로 포함)
@@ -102,7 +102,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/notifications/**").hasRole("USER")
                         .requestMatchers("/api/report/**").hasRole("USER")
                         .requestMatchers("/api/comments/**").hasRole("USER")
-                        .requestMatchers("/api/files/upload").hasRole("USER")
+                        .requestMatchers("/api/files/**").hasRole("USER")
                         .requestMatchers("/api/collab-rooms").hasRole("USER")
 
 
