@@ -6,12 +6,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -35,85 +36,81 @@ public class SecurityConfig {
     @Value("${compiler.python.url}")
     private String compilerPythonUrl;
 
-    // 1. JWT 인증이 필요한 API를 위한 필터 체인 (우선순위 1)
-    @Bean
-    @Order(1)
-    @Profile("!dev")
-    public SecurityFilterChain jwtFilterChain(HttpSecurity http) throws Exception {
-        http
-                .securityMatcher("/api/posts/**", "/api/notifications/**", "/api/admin/**", "/api/report/**", "/api/comments/**") // 이 경로들에 대해서만 이 필터 체인을 적용
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/comments/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/posts/**").hasAnyRole("USER", "ADMIN")
-                        .requestMatchers("/api/notifications/**").hasAnyRole("USER", "ADMIN")
-                        .requestMatchers("/api/report/**").hasAnyRole("USER", "ADMIN")
-                        .requestMatchers("/api/comments/**").hasAnyRole("USER", "ADMIN")
-                        .anyRequest().authenticated()
-                )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, userRepository),
-                        UsernamePasswordAuthenticationFilter.class)
-                .formLogin(AbstractHttpConfigurer::disable)
-                .httpBasic(AbstractHttpConfigurer::disable);
-
-        return http.build();
-    }
-
-    // 2. JWT 인증이 필요 없는 API 및 기타 경로를 위한 필터 체인 (우선순위 2)
-    @Bean
-    @Order(2)
-    @Profile("!dev")
-    public SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
-        http
-                // securityMatcher를 지정하지 않으면 나머지 모든 요청을 처리합니다.
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth
-                        // 로그인, 회원가입, Swagger 등 인증이 필요 없는 경로는 여기서 permitAll() 처리
-                        .requestMatchers(
-                                "/api/users/login",
-                                "/api/users/signup",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/api/code/**"
-                        ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/comments/**").permitAll()
-                        .anyRequest().permitAll()
-                );
-
-        return http.build();
-    }
-
-    // "dev" 프로파일에서 사용할 보안 설정
+    /**
+     * "dev" 프로파일 (개발 환경)을 위한 보안 설정
+     * ADMIN 권한 체크를 제외하여 USER 권한으로도 ADMIN API 테스트가 가능합니다.
+     */
     @Bean
     @Profile("dev")
     public SecurityFilterChain devSecurityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // CORS preflight 허용
-                        // dev 환경에서 인증 없이 접근을 허용할 경로
-                        .requestMatchers(
-                                "/api/admin/**",
-                                "/api/users/login",
-                                "/api/users/signup",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/api/code/**"
-                        ).permitAll()
-                        // 그 외 모든 요청은 인증을 요구하도록 설정 (!dev 환경과 유사하게)
+                        // 1. 누구나 접근 가능한 경로
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/users/login", "/api/users/signup").permitAll()
+                        .requestMatchers("/api/code/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/comments/**").permitAll()
+
+                        // 2. USER 권한이 필요한 경로
+                        .requestMatchers("/api/posts/**").hasRole("USER")
+                        .requestMatchers("/api/notifications/**").hasRole("USER")
+                        .requestMatchers("/api/report/**").hasRole("USER")
+                        .requestMatchers("/api/comments/**").hasRole("USER")
+                        .requestMatchers("/api/files/upload").hasRole("USER")
+
+                        // 3. 나머지 모든 요청은 인증된 사용자만 접근 가능 (ADMIN 경로 포함)
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, userRepository),
-                        UsernamePasswordAuthenticationFilter.class)
-                .formLogin(AbstractHttpConfigurer::disable)
-                .httpBasic(AbstractHttpConfigurer::disable);
+                        UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
+    /**
+     * "prod", "default" 등 운영 환경을 위한 보안 설정
+     * ADMIN 경로는 ADMIN 권한이 있는 사용자만 접근 가능합니다.
+     */
+    @Bean
+    @Profile("!dev")
+    public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        // 1. 누구나 접근 가능한 경로
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/users/login", "/api/users/signup").permitAll()
+                        .requestMatchers("/api/code/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/comments/**").permitAll()
+
+                        // 2. ADMIN 권한이 필요한 경로
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // 3. USER 권한이 필요한 경로
+                        .requestMatchers("/api/posts/**").hasRole("USER")
+                        .requestMatchers("/api/notifications/**").hasRole("USER")
+                        .requestMatchers("/api/report/**").hasRole("USER")
+                        .requestMatchers("/api/comments/**").hasRole("USER")
+                        .requestMatchers("/api/files/upload").hasRole("USER")
+
+
+                        // 4. 나머지 모든 요청은 인증된 사용자만 접근 가능
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, userRepository),
+                        UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+
+    // --- 공통 Bean 설정 ---
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
