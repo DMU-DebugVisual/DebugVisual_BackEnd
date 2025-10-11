@@ -1,4 +1,4 @@
-package com.dmu.debug_visual.websocket.dto;
+package com.dmu.debug_visual.collab.websocket.dto;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Getter
-public class Room {
+public class WebSocketRoom {
 
     private String roomId;    // 방 고유 ID
     private String ownerId;   // 방 생성자(방장)의 ID
@@ -20,7 +20,7 @@ public class Room {
     }
 
     @Builder
-    public Room(String roomId, String ownerId) {
+    public WebSocketRoom(String roomId, String ownerId) {
         this.roomId = roomId;
         this.ownerId = ownerId;
         // 여러 사용자가 동시에 접근해도 안전한 ConcurrentHashMap 사용
@@ -38,6 +38,18 @@ public class Room {
     public void grantWritePermission(String userId) {
         if (this.participants.containsKey(userId)) {
             this.participants.put(userId, Permission.READ_WRITE);
+        }
+    }
+
+    /**
+     * 특정 참여자의 쓰기 권한을 회수하고 읽기 전용으로 변경합니다.
+     * 방장의 권한은 회수할 수 없습니다.
+     * @param userId 권한을 회수할 사용자의 ID
+     */
+    public void revokeWritePermission(String userId) {
+        // 방장(owner)이 아닌 경우에만 권한을 변경합니다.
+        if (this.participants.containsKey(userId) && !this.ownerId.equals(userId)) {
+            this.participants.put(userId, Permission.READ_ONLY);
         }
     }
 }

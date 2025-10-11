@@ -51,6 +51,7 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         // 1. 누구나 접근 가능한 경로
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/users/login", "/api/users/signup").permitAll()
                         .requestMatchers("/api/code/**").permitAll()
@@ -88,6 +89,7 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         // 1. 누구나 접근 가능한 경로
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/users/login", "/api/users/signup").permitAll()
                         .requestMatchers("/api/code/**").permitAll()

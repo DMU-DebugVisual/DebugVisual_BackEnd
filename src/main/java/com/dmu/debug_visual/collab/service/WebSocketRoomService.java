@@ -1,6 +1,6 @@
-package com.dmu.debug_visual.websocket.service;
+package com.dmu.debug_visual.collab.service;
 
-import com.dmu.debug_visual.websocket.dto.Room;
+import com.dmu.debug_visual.collab.websocket.dto.WebSocketRoom;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -8,35 +8,36 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-public class RoomService {
+public class WebSocketRoomService {
 
     // 현재 생성된 모든 방의 정보를 서버 메모리에 저장합니다.
-    private final Map<String, Room> rooms = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketRoom> activeRooms = new ConcurrentHashMap<>();
 
     /**
      * 새로운 협업 방을 생성합니다.
      * @param ownerId 방을 생성하는 사용자의 ID
      * @return 생성된 방의 정보
      */
-    public Room createRoom(String ownerId) {
-        // 고유한 방 ID를 생성합니다.
-        String roomId = UUID.randomUUID().toString();
-        Room room = Room.builder()
+    public WebSocketRoom activateRoom(String roomId, String ownerId) {
+        if(activeRooms.containsKey(roomId)) {
+            return activeRooms.get(roomId);
+        }
+        WebSocketRoom webSocketRoom = WebSocketRoom.builder()
                 .roomId(roomId)
                 .ownerId(ownerId)
                 .build();
-
-        rooms.put(roomId, room);
-        return room;
+        activeRooms.put(roomId, webSocketRoom);
+        return webSocketRoom;
     }
 
     /**
-     * ID로 방을 찾습니다.
+     * ID로 활성화된 방을 찾습니다.
      * @param roomId 찾으려는 방의 ID
      * @return 찾아낸 방의 정보 (없으면 null)
      */
-    public Room findRoomById(String roomId) {
-        return rooms.get(roomId);
+    // ✨ 이 메소드 이름을 수정해주세요!
+    public WebSocketRoom findActiveRoomById(String roomId) {
+        return activeRooms.get(roomId);
     }
 
     /**
@@ -46,13 +47,12 @@ public class RoomService {
      * @return 쓰기 권한이 있으면 true
      */
     public boolean hasWritePermission(String roomId, String userId) {
-        Room room = findRoomById(roomId);
-        if (room == null) {
+        WebSocketRoom webSocketRoom = findActiveRoomById(roomId);
+        if (webSocketRoom == null) {
             return false;
         }
-
-        Room.Permission permission = room.getParticipants().get(userId);
-        return Room.Permission.READ_WRITE.equals(permission);
+        WebSocketRoom.Permission permission = webSocketRoom.getParticipants().get(userId);
+        return WebSocketRoom.Permission.READ_WRITE.equals(permission);
     }
 
     /**
@@ -61,9 +61,9 @@ public class RoomService {
      * @param userId 새로운 참여자의 ID
      */
     public void addParticipant(String roomId, String userId) {
-        Room room = findRoomById(roomId);
-        if (room != null) {
-            room.addParticipant(userId);
+        WebSocketRoom webSocketRoom = findActiveRoomById(roomId);
+        if (webSocketRoom != null) {
+            webSocketRoom.addParticipant(userId);
         }
     }
 }

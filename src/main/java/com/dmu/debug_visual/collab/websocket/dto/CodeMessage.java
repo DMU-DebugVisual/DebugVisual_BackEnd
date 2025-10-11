@@ -1,4 +1,4 @@
-package com.dmu.debug_visual.websocket.dto;
+package com.dmu.debug_visual.collab.websocket.dto;
 
 import lombok.Getter;
 import lombok.Setter;

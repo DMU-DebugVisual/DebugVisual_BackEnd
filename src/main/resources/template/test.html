@@ -6,7 +6,7 @@
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <style>
         body { font-family: sans-serif; display: flex; gap: 20px; padding: 10px; }
-        .panel { border: 1px solid #ccc; padding: 10px; border-radius: 5px; }
+        .panel { border: 1px solid #ccc; padding: 10px; border-radius: 5px; min-width: 300px; }
         textarea { width: 400px; height: 300px; }
         #log { width: 400px; height: 400px; overflow-y: scroll; border: 1px solid #eee; padding: 5px; font-size: 12px; background-color: #f9f9f9; white-space: pre-wrap; }
         input { margin-bottom: 5px; padding: 4px; width: 95%; }
@@ -17,7 +17,7 @@
 <div class="panel">
     <h2>Connection</h2>
     <input type="text" id="roomId" placeholder="Enter Room ID"><br>
-    <input type="text" id="myUserId" placeholder="Enter My User ID"><br>
+    <input type="text" id="sessionId" placeholder="Enter Session ID"> <input type="text" id="myUserId" placeholder="Enter My User ID"><br>
     <input type="text" id="jwtToken" placeholder="Enter JWT Token" style="width: 95%;"><br>
     <button onclick="connect()">Connect</button>
     <button onclick="disconnect()">Disconnect</button>
@@ -25,6 +25,10 @@
     <h2>Grant Permission</h2>
     <input type="text" id="targetUserId" placeholder="Target User ID"><br>
     <button onclick="grantPermission()">Grant Write Permission</button>
+    <hr>
+    <h2>Revoke Permission</h2>
+    <input type="text" id="revokeTargetUserId" placeholder="Target User ID"><br>
+    <button onclick="revokePermission()">Revoke Write Permission</button>
 </div>
 <div class="panel">
     <h2>Code Editor</h2>
@@ -46,40 +50,36 @@
 
     function connect() {
         const roomId = document.getElementById('roomId').value;
+        const sessionId = document.getElementById('sessionId').value; // ✨ sessionId 가져오기
         const jwtToken = document.getElementById('jwtToken').value;
-        if (!roomId || !jwtToken) {
-            alert('Room ID와 JWT Token을 모두 입력하세요.');
+        if (!roomId || !jwtToken || !sessionId) { // ✨ sessionId 유효성 검사 추가
+            alert('Room ID, Session ID, JWT Token을 모두 입력하세요.');
             return;
         }
 
-        const headers = {
-            'Authorization': 'Bearer ' + jwtToken
-        };
-
+        const headers = { 'Authorization': 'Bearer ' + jwtToken };
         const socket = new SockJS('http://localhost:8080/ws-collab');
         stompClient = Stomp.over(socket);
 
         stompClient.connect(headers, function (frame) {
             log('Connected: ' + frame);
 
-            // 1. 코드 업데이트 구독
-            stompClient.subscribe('/topic/room/' + roomId + '/code', function (message) {
+            // ✨ 1. 코드 업데이트 구독 (세션별 주소로 변경)
+            const codeTopic = `/topic/room/${roomId}/session/${sessionId}/code`;
+            stompClient.subscribe(codeTopic, function (message) {
                 const received = JSON.parse(message.body);
-                log('Code updated by ' + (received.senderName || received.senderId) + '.');
+                log(`Code updated in session ${sessionId} by ${received.senderName || received.senderId}.`);
                 document.getElementById('editor').value = received.content;
             });
+            log('Subscribed to: ' + codeTopic);
 
-            // 2. 권한 변경 구독
-            stompClient.subscribe('/topic/room/' + roomId + '/permission', function (message) {
+            // 2. 권한 변경 구독 (방 전체 주소 유지)
+            const permissionTopic = `/topic/room/${roomId}/permission`;
+            stompClient.subscribe(permissionTopic, function (message) {
                 const received = JSON.parse(message.body);
-                log('Permission granted to ' + (received.targetUserName || received.targetUserId) + ' by ' + (received.senderName || received.senderId));
+                log(`Permission granted to ${received.targetUserName || received.targetUserId} by ${received.senderName || received.senderId}`);
             });
-
-            // 3. 시스템 메시지 (입장/퇴장) 구독
-            stompClient.subscribe('/topic/room/' + roomId + '/system', function (message) {
-                const received = JSON.parse(message.body);
-                log('[SYSTEM] ' + received.content);
-            });
+            log('Subscribed to: ' + permissionTopic);
 
         }, function(error) {
             log('STOMP error: ' + error);
@@ -89,10 +89,13 @@
     function sendCodeUpdate() {
         if (stompClient && stompClient.connected) {
             const roomId = document.getElementById('roomId').value;
+            const sessionId = document.getElementById('sessionId').value; // ✨ sessionId 가져오기
             const myUserId = document.getElementById('myUserId').value;
             const content = document.getElementById('editor').value;
 
-            stompClient.send("/app/room/" + roomId + "/code-update", {}, JSON.stringify({
+            // ✨ 메시지 전송 주소 변경
+            const destination = `/app/room/${roomId}/session/${sessionId}/code-update`;
+            stompClient.send(destination, {}, JSON.stringify({
                 'senderId': myUserId,
                 'content': content
             }));
@@ -105,7 +108,24 @@
             const myUserId = document.getElementById('myUserId').value;
             const targetUserId = document.getElementById('targetUserId').value;
 
-            stompClient.send("/app/room/" + roomId + "/grant-permission", {}, JSON.stringify({
+            // ✨ 권한 변경은 방 전체에 대한 것이므로 주소 유지
+            const destination = `/app/room/${roomId}/grant-permission`;
+            stompClient.send(destination, {}, JSON.stringify({
+                'senderId': myUserId,
+                'targetUserId': targetUserId
+            }));
+        }
+    }
+
+    function revokePermission() {
+        if (stompClient && stompClient.connected) {
+            const roomId = document.getElementById('roomId').value;
+            const myUserId = document.getElementById('myUserId').value;
+            const targetUserId = document.getElementById('revokeTargetUserId').value;
+
+            // 새로 추가한 revoke-permission 엔드포인트로 메시지 전송
+            const destination = `/app/room/${roomId}/revoke-permission`;
+            stompClient.send(destination, {}, JSON.stringify({
                 'senderId': myUserId,
                 'targetUserId': targetUserId
             }));
@@ -120,4 +140,4 @@
     }
 </script>
 </body>
-</html>
+</html>ㄴ
