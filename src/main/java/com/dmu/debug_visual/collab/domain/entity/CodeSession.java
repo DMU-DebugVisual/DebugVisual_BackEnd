@@ -5,6 +5,10 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -26,10 +30,28 @@ public class CodeSession {
     @JoinColumn(name = "room_id", nullable = false)
     private Room room; // 이 세션이 속한 방
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @ColumnDefault("'ACTIVE'") // DB에 기본값을 'ACTIVE'로 설정
+    private SessionStatus status;
+
+    public enum SessionStatus {
+        ACTIVE,  // 활성화 (방송 중)
+        INACTIVE // 비활성화 (방송 꺼짐)
+    }
+
     @Builder
     public CodeSession(String sessionName, Room room) {
         this.sessionId = UUID.randomUUID().toString();
         this.sessionName = sessionName;
         this.room = room;
+        this.status = SessionStatus.ACTIVE;
     }
+
+    public void updateStatus(SessionStatus status) {
+        this.status = status;
+    }
+
+    @OneToMany(mappedBy = "codeSession", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SessionParticipant> participants = new ArrayList<>();
 }
