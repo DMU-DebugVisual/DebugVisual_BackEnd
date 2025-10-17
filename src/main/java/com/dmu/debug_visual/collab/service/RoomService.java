@@ -220,4 +220,32 @@ public class RoomService {
         }
         return session;
     }
+
+    /**
+     * 사용자를 특정 방의 참여자로 등록합니다.
+     * @param roomId 참여할 방의 ID
+     * @param userId 참여할 사용자의 ID
+     */
+    @Transactional
+    public void joinRoom(String roomId, String userId) {
+        Room room = roomRepository.findByRoomId(roomId)
+                .orElseThrow(() -> new EntityNotFoundException("Room not found: " + roomId));
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+
+        // 💡 이미 참여자인지 확인하여 중복 등록을 방지합니다.
+        boolean isAlreadyParticipant = roomParticipantRepository.existsByRoomAndUser(room, user);
+        if (isAlreadyParticipant) {
+            // 이미 참여자이면 아무것도 하지 않고 성공으로 간주
+            return;
+        }
+
+        // 새로운 참여자로 등록 (기본 권한은 READ_ONLY)
+        RoomParticipant newParticipant = RoomParticipant.builder()
+                .room(room)
+                .user(user)
+                .permission(RoomParticipant.Permission.READ_ONLY)
+                .build();
+        roomParticipantRepository.save(newParticipant);
+    }
 }

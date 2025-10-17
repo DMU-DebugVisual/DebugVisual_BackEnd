@@ -27,9 +27,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RoomController {
 
+    // ✨ Controller는 이제 Service에만 의존합니다. 훨씬 깔끔해졌죠!
     private final RoomService roomService;
 
-    // --- 방 관리 ---
+    // --- 1. 방 관리 ---
     @Operation(summary = "새로운 협업 방 생성", description = "DB에 새로운 협업 방을 생성하고, 방장을 첫 참여자로 자동 등록합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "방 생성 성공", content = @Content(schema = @Schema(implementation = RoomResponse.class))),
@@ -42,7 +43,7 @@ public class RoomController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "방에서 참가자 강퇴 (방장 전용)", description = "방장이 특정 참가자를 방에서 영구적으로 제외시킵니다. 강퇴된 참가자는 해당 방의 모든 세션에서도 제거됩니다.")
+    @Operation(summary = "방에서 참가자 강퇴 (방장 전용)", description = "방장이 특정 참가자를 방에서 영구적으로 제외시킵니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "강퇴 성공"),
             @ApiResponse(responseCode = "401", description = "인증 실패"),
@@ -58,8 +59,22 @@ public class RoomController {
         return ResponseEntity.ok().build();
     }
 
-    // --- 세션 관리 ---
-    @Operation(summary = "방 안에 새 코드 세션 생성 (방송 시작)", description = "기존 방 안에 독립적인 새 코드 편집 세션을 생성합니다. 생성자는 자동으로 쓰기 권한을 가집니다.")
+    @Operation(summary = "협업 방에 참여자로 등록", description = "사용자가 특정 방에 참여자로 자신을 등록합니다. 웹소켓에 연결하기 전에 반드시 호출해야 합니다.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "참여 등록 성공"),
+            @ApiResponse(responseCode = "401", description = "인증 실패"),
+            @ApiResponse(responseCode = "404", description = "존재하지 않는 방")
+    })
+    @PostMapping("/rooms/{roomId}/participants")
+    public ResponseEntity<Void> joinRoom(
+            @Parameter(description = "참여할 방의 고유 ID") @PathVariable String roomId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        roomService.joinRoom(roomId, userDetails.getUsername());
+        return ResponseEntity.ok().build();
+    }
+
+    // --- 2. 세션 관리 ---
+    @Operation(summary = "방 안에 새 코드 세션 생성 (방송 시작)", description = "기존 방 안에 독립적인 새 코드 편집 세션을 생성합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "세션 생성 성공", content = @Content(schema = @Schema(implementation = SessionResponse.class))),
             @ApiResponse(responseCode = "401", description = "인증 실패"),
@@ -91,7 +106,7 @@ public class RoomController {
         return ResponseEntity.ok().build();
     }
 
-    // --- 세션 권한 관리 ---
+    // --- 3. 세션 권한 관리 ---
     @Operation(summary = "세션 내 쓰기 권한 부여 (세션 생성자 전용)", description = "세션 생성자가 특정 참가자에게 해당 세션의 쓰기 권한을 부여합니다.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "권한 부여 성공"),
