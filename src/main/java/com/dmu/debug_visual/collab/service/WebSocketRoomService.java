@@ -35,7 +35,6 @@ public class WebSocketRoomService {
      * @param roomId 찾으려는 방의 ID
      * @return 찾아낸 방의 정보 (없으면 null)
      */
-    // ✨ 이 메소드 이름을 수정해주세요!
     public WebSocketRoom findActiveRoomById(String roomId) {
         return activeRooms.get(roomId);
     }
@@ -64,6 +63,13 @@ public class WebSocketRoomService {
         WebSocketRoom webSocketRoom = findActiveRoomById(roomId);
         if (webSocketRoom != null) {
             webSocketRoom.addParticipant(userId);
+        }
+    }
+
+    public void removeParticipant(String roomId, String userId) {
+        WebSocketRoom activeRoom = findActiveRoomById(roomId);
+        if (activeRoom != null) {
+            activeRoom.getParticipants().remove(userId);
         }
     }
 }

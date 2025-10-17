@@ -5,37 +5,45 @@
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <style>
-        body { font-family: sans-serif; display: flex; gap: 20px; padding: 10px; }
+        body { font-family: sans-serif; display: flex; flex-wrap: wrap; gap: 20px; padding: 10px; }
         .panel { border: 1px solid #ccc; padding: 10px; border-radius: 5px; min-width: 300px; }
-        textarea { width: 400px; height: 300px; }
+        textarea { width: 400px; height: 300px; resize: vertical; }
         #log { width: 400px; height: 400px; overflow-y: scroll; border: 1px solid #eee; padding: 5px; font-size: 12px; background-color: #f9f9f9; white-space: pre-wrap; }
+        #participantsPanel { height: 400px; }
+        #participantList { list-style: none; padding: 0; }
+        #participantList li { padding: 5px; border-bottom: 1px solid #eee; }
+        #participantList .owner { font-weight: bold; color: #b45309; }
         input { margin-bottom: 5px; padding: 4px; width: 95%; }
-        button { width: 100%; padding: 8px; margin-top: 5px; }
+        button { width: 100%; padding: 8px; margin-top: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
+
 <div class="panel">
-    <h2>Connection</h2>
-    <input type="text" id="roomId" placeholder="Enter Room ID"><br>
-    <input type="text" id="sessionId" placeholder="Enter Session ID"> <input type="text" id="myUserId" placeholder="Enter My User ID"><br>
-    <input type="text" id="jwtToken" placeholder="Enter JWT Token" style="width: 95%;"><br>
+    <h2>1. Connection</h2>
+    <input type="text" id="roomId" placeholder="Enter Room ID">
+    <input type="text" id="sessionId" placeholder="Enter Session ID">
+    <input type="text" id="myUserId" placeholder="Enter My User ID">
+    <input type="text" id="jwtToken" placeholder="Enter JWT Token">
     <button onclick="connect()">Connect</button>
-    <button onclick="disconnect()">Disconnect</button>
-    <hr>
-    <h2>Grant Permission</h2>
-    <input type="text" id="targetUserId" placeholder="Target User ID"><br>
-    <button onclick="grantPermission()">Grant Write Permission</button>
-    <hr>
-    <h2>Revoke Permission</h2>
-    <input type="text" id="revokeTargetUserId" placeholder="Target User ID"><br>
-    <button onclick="revokePermission()">Revoke Write Permission</button>
+    <button onclick="disconnect()" disabled>Disconnect</button>
+    <p style="font-size: 12px; color: #666;">
+        <b>Note:</b> 권한 부여/회수, 강퇴, 세션 켜고 끄기는 REST API로 처리됩니다. (API 명세서 참고)
+    </p>
 </div>
-<div class="panel">
-    <h2>Code Editor</h2>
-    <textarea id="editor" onkeyup="sendCodeUpdate()"></textarea>
+
+<div class="panel" id="participantsPanel">
+    <h2 id="roomNameTitle">Participants</h2>
+    <ul id="participantList"></ul>
 </div>
+
 <div class="panel">
-    <h2>Received Messages Log</h2>
+    <h2>2. Code Editor (Session)</h2>
+    <textarea id="editor" onkeyup="sendCodeUpdate()" disabled></textarea>
+</div>
+
+<div class="panel">
+    <h2>3. Received Messages Log</h2>
     <pre id="log"></pre>
 </div>
 
@@ -44,56 +52,86 @@
 
     function log(message) {
         const logElement = document.getElementById('log');
-        logElement.innerText += message + '\n';
-        logElement.scrollTop = logElement.scrollHeight; // Auto-scroll
+        logElement.innerText += `[${new Date().toLocaleTimeString()}] ${message}\n`;
+        logElement.scrollTop = logElement.scrollHeight;
+    }
+
+    function updateParticipantList(roomState) {
+        const listElement = document.getElementById('participantList');
+        const roomNameTitle = document.getElementById('roomNameTitle');
+        listElement.innerHTML = ''; // 목록 비우기
+
+        roomNameTitle.innerText = `${roomState.roomName} (Participants)`;
+
+        // 1. 방장 추가
+        const ownerItem = document.createElement('li');
+        ownerItem.className = 'owner';
+        ownerItem.innerText = `👑 ${roomState.owner.userName} (${roomState.owner.userId})`;
+        listElement.appendChild(ownerItem);
+
+        // 2. 나머지 참여자 추가
+        roomState.participants.forEach(p => {
+            const participantItem = document.createElement('li');
+            participantItem.innerText = `👤 ${p.userName} (${p.userId})`;
+            listElement.appendChild(participantItem);
+        });
     }
 
     function connect() {
         const roomId = document.getElementById('roomId').value;
-        const sessionId = document.getElementById('sessionId').value; // ✨ sessionId 가져오기
+        const sessionId = document.getElementById('sessionId').value;
+        const myUserId = document.getElementById('myUserId').value;
         const jwtToken = document.getElementById('jwtToken').value;
-        if (!roomId || !jwtToken || !sessionId) { // ✨ sessionId 유효성 검사 추가
-            alert('Room ID, Session ID, JWT Token을 모두 입력하세요.');
+
+        if (!roomId || !jwtToken || !sessionId || !myUserId) {
+            alert('모든 필드를 입력하세요.');
             return;
         }
 
         const headers = { 'Authorization': 'Bearer ' + jwtToken };
         const socket = new SockJS('http://localhost:8080/ws-collab');
         stompClient = Stomp.over(socket);
+        stompClient.debug = null; // STOMP 라이브러리 자체 로그 끄기
 
         stompClient.connect(headers, function (frame) {
-            log('Connected: ' + frame);
+            log('✅ Connected to WebSocket Server.');
+            document.querySelector('[onclick="connect()"]').disabled = true;
+            document.querySelector('[onclick="disconnect()"]').disabled = false;
+            document.getElementById('editor').disabled = false;
 
-            // ✨ 1. 코드 업데이트 구독 (세션별 주소로 변경)
+            // --- 1. 방 상태(참여자 목록) 업데이트 구독 ---
+            const systemTopic = `/topic/room/${roomId}/system`;
+            stompClient.subscribe(systemTopic, function (message) {
+                const roomState = JSON.parse(message.body);
+                log(`🔄 Received Room State Update. Owner: ${roomState.owner.userName}, Participants: ${roomState.participants.length}`);
+                updateParticipantList(roomState);
+            });
+            log(`👂 Subscribed to: ${systemTopic}`);
+
+            // --- 2. 코드 수정 내용 구독 ---
             const codeTopic = `/topic/room/${roomId}/session/${sessionId}/code`;
             stompClient.subscribe(codeTopic, function (message) {
                 const received = JSON.parse(message.body);
-                log(`Code updated in session ${sessionId} by ${received.senderName || received.senderId}.`);
-                document.getElementById('editor').value = received.content;
+                // 내가 보낸 메시지는 다시 받아서 에디터를 덮어쓰지 않도록 처리
+                if (received.senderId !== myUserId) {
+                    log(`💻 Code updated by ${received.senderName || received.senderId}.`);
+                    document.getElementById('editor').value = received.content;
+                }
             });
-            log('Subscribed to: ' + codeTopic);
-
-            // 2. 권한 변경 구독 (방 전체 주소 유지)
-            const permissionTopic = `/topic/room/${roomId}/permission`;
-            stompClient.subscribe(permissionTopic, function (message) {
-                const received = JSON.parse(message.body);
-                log(`Permission granted to ${received.targetUserName || received.targetUserId} by ${received.senderName || received.senderId}`);
-            });
-            log('Subscribed to: ' + permissionTopic);
+            log(`👂 Subscribed to: ${codeTopic}`);
 
         }, function(error) {
-            log('STOMP error: ' + error);
+            log('❌ STOMP connection error: ' + error);
         });
     }
 
     function sendCodeUpdate() {
         if (stompClient && stompClient.connected) {
             const roomId = document.getElementById('roomId').value;
-            const sessionId = document.getElementById('sessionId').value; // ✨ sessionId 가져오기
+            const sessionId = document.getElementById('sessionId').value;
             const myUserId = document.getElementById('myUserId').value;
             const content = document.getElementById('editor').value;
 
-            // ✨ 메시지 전송 주소 변경
             const destination = `/app/room/${roomId}/session/${sessionId}/code-update`;
             stompClient.send(destination, {}, JSON.stringify({
                 'senderId': myUserId,
@@ -102,42 +140,18 @@
         }
     }
 
-    function grantPermission() {
-        if (stompClient && stompClient.connected) {
-            const roomId = document.getElementById('roomId').value;
-            const myUserId = document.getElementById('myUserId').value;
-            const targetUserId = document.getElementById('targetUserId').value;
-
-            // ✨ 권한 변경은 방 전체에 대한 것이므로 주소 유지
-            const destination = `/app/room/${roomId}/grant-permission`;
-            stompClient.send(destination, {}, JSON.stringify({
-                'senderId': myUserId,
-                'targetUserId': targetUserId
-            }));
-        }
-    }
-
-    function revokePermission() {
-        if (stompClient && stompClient.connected) {
-            const roomId = document.getElementById('roomId').value;
-            const myUserId = document.getElementById('myUserId').value;
-            const targetUserId = document.getElementById('revokeTargetUserId').value;
-
-            // 새로 추가한 revoke-permission 엔드포인트로 메시지 전송
-            const destination = `/app/room/${roomId}/revoke-permission`;
-            stompClient.send(destination, {}, JSON.stringify({
-                'senderId': myUserId,
-                'targetUserId': targetUserId
-            }));
-        }
-    }
-
     function disconnect() {
         if (stompClient !== null) {
-            stompClient.disconnect();
+            stompClient.disconnect(() => {
+                log('🔌 Disconnected from WebSocket Server.');
+                document.querySelector('[onclick="connect()"]').disabled = false;
+                document.querySelector('[onclick="disconnect()"]').disabled = true;
+                document.getElementById('editor').disabled = true;
+                document.getElementById('participantList').innerHTML = '';
+                document.getElementById('roomNameTitle').innerText = 'Participants';
+            });
         }
-        log("Disconnected");
     }
 </script>
 </body>
-</html>ㄴ
+</html>
