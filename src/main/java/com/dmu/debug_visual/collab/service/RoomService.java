@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -32,6 +34,7 @@ public class RoomService {
 
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
+    private final WebSocketRoomService webSocketRoomService;
     private final RoomParticipantRepository roomParticipantRepository;
     private final SessionParticipantRepository sessionParticipantRepository;
     private final CodeSessionRepository codeSessionRepository;
@@ -254,35 +257,47 @@ public class RoomService {
     }
 
     /**
-     * 특정 방의 최신 상태(방 이름, 방장, 참여자 목록)를 조회하여
-     * 해당 방의 시스템 채널로 브로드캐스팅합니다.
+     * 특정 방의 최신 '실시간 상태'를 조회하여 시스템 채널로 브로드캐스팅합니다.
      * @param roomId 상태를 방송할 방의 ID
      */
     @Transactional(readOnly = true)
     public void broadcastRoomState(String roomId) {
         Room dbRoom = roomRepository.findByRoomId(roomId)
-                .orElseThrow(() -> new RuntimeException("Room not found during state broadcast: " + roomId));
+                .orElseThrow(() -> new RuntimeException("Room not found: " + roomId));
 
+        // ✨ 1. DB가 아닌, 메모리에서 현재 '실시간 접속자' ID 목록을 가져옵니다.
+        Set<String> activeUserIds = webSocketRoomService.getActiveParticipants(roomId);
+        if (activeUserIds == null) {
+            log.warn("No active participants found in memory for room: {}", roomId);
+            return;
+        }
+
+        // 2. 방장 정보 DTO 생성
         ParticipantInfo ownerInfo = ParticipantInfo.builder()
                 .userId(dbRoom.getOwner().getUserId())
                 .userName(dbRoom.getOwner().getName())
                 .build();
 
-        List<ParticipantInfo> participantInfos = dbRoom.getParticipants().stream()
-                .filter(p -> !p.getUser().getUserId().equals(dbRoom.getOwner().getUserId()))
-                .map(p -> ParticipantInfo.builder()
-                        .userId(p.getUser().getUserId())
-                        .userName(p.getUser().getName())
+        // ✨ 3. '실시간 접속자' 중에서 방장을 제외한 나머지 참여자 목록 DTO 생성
+        List<ParticipantInfo> participantInfos = activeUserIds.stream()
+                .filter(userId -> !userId.equals(ownerInfo.getUserId()))
+                .map(userId -> userRepository.findByUserId(userId).orElse(null))
+                .filter(Objects::nonNull)
+                .map(user -> ParticipantInfo.builder()
+                        .userId(user.getUserId())
+                        .userName(user.getName())
                         .build())
                 .collect(Collectors.toList());
 
+        // 4. 최종 업데이트 DTO 생성
         RoomStateUpdate roomStateUpdate = RoomStateUpdate.builder()
                 .roomName(dbRoom.getName())
                 .owner(ownerInfo)
                 .participants(participantInfos)
                 .build();
 
+        // 5. 시스템 채널로 브로드캐스팅
         messagingTemplate.convertAndSend("/topic/room/" + roomId + "/system", roomStateUpdate);
-        log.info("Broadcasted room state update for room: {}", roomId);
+        log.info("Broadcasted real-time state for room: {}. Active users: {}", roomId, activeUserIds.size());
     }
 }
