@@ -20,6 +20,7 @@ public class CommentService {
 
     Comment parent = null;
 
+    @Transactional // ✨ 알림 생성까지 하나의 트랜잭션으로 묶어주는 것이 안전합니다.
     public Long createComment(CommentRequestDTO dto, User user) {
         Post post = postRepository.findById(dto.getPostId())
                 .orElseThrow(() -> new RuntimeException("게시글 없음"));
@@ -35,7 +36,6 @@ public class CommentService {
             parent = commentRepository.findById(dto.getParentId())
                     .orElseThrow(() -> new RuntimeException("상위 댓글 없음"));
 
-            // 대댓글의 부모가 null이 아니면(즉, 대댓글에 대댓글을 다는 경우) 에러 발생
             if (parent.getParent() != null) {
                 throw new IllegalArgumentException("대댓글에는 답글을 달 수 없습니다.");
             }
@@ -43,13 +43,23 @@ public class CommentService {
             builder.parent(parent);
 
             if (!user.getUserNum().equals(parent.getWriter().getUserNum())) {
-                notificationService.notify(parent.getWriter(), user.getName() + "님이 댓글에 답글을 남겼습니다.");
+                // ✨ 대댓글 알림 시 postId 추가
+                notificationService.notify(
+                        parent.getWriter(),
+                        user.getName() + "님이 댓글에 답글을 남겼습니다.",
+                        post.getId() // ✨ 게시물 ID 전달
+                );
             }
         }
 
         // 게시글 작성자에게 알림 (작성자 본인이 아닌 경우)
         if (!user.getUserNum().equals(post.getWriter().getUserNum())) {
-            notificationService.notify(post.getWriter(), user.getName() + "님이 게시글에 댓글을 남겼습니다.");
+            // ✨ 게시글 댓글 알림 시 postId 추가
+            notificationService.notify(
+                    post.getWriter(),
+                    user.getName() + "님이 게시글에 댓글을 남겼습니다.",
+                    post.getId() // ✨ 게시물 ID 전달
+            );
         }
 
         return commentRepository.save(builder.build()).getId();
