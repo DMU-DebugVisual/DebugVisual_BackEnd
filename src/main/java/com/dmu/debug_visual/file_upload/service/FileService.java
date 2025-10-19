@@ -1,6 +1,7 @@
 package com.dmu.debug_visual.file_upload.service;
 
 import com.dmu.debug_visual.file_upload.CodeFileRepository;
+import com.dmu.debug_visual.file_upload.dto.FileContentResponse;
 import com.dmu.debug_visual.file_upload.dto.FileResponseDTO;
 import com.dmu.debug_visual.file_upload.dto.UserFileDTO;
 import com.dmu.debug_visual.file_upload.entity.CodeFile;
@@ -17,33 +18,41 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * 파일 관련 비즈니스 로직을 처리하는 서비스 클래스.
+ * S3Uploader와 DB(CodeFileRepository)를 함께 사용하여 파일의 생성, 수정, 조회, 삭제를 관리합니다.
+ */
 @Service
 @RequiredArgsConstructor
 public class FileService {
 
-    private final S3Uploader s3Uploader; // 역할이 단순화된 S3Uploader 주입
+    private final S3Uploader s3Uploader;
     private final CodeFileRepository codeFileRepository;
     private final UserRepository userRepository;
 
+    // =================================================================================
+    // == 1. 파일 생성 및 수정 (Create & Update)
+    // =================================================================================
+
+    /**
+     * 파일을 새로 저장하거나 기존 파일을 덮어씁니다.
+     * @param fileUUID 수정할 파일의 ID (신규 저장 시 null)
+     * @param file 업로드된 파일 데이터
+     * @param userId 요청을 보낸 사용자의 ID
+     * @return 생성 또는 수정된 파일의 정보
+     */
     @Transactional
     public FileResponseDTO saveOrUpdateFile(String fileUUID, MultipartFile file, String userId) throws IOException {
-
-        // 1. 요청 보낸 사용자의 엔티티를 조회합니다.
         User currentUser = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
-        // 2. fileUUID의 존재 여부로 '최초 저장'과 '수정'을 구분합니다.
         if (fileUUID == null || fileUUID.isBlank()) {
-
-            // 💡 최초 저장 로직
+            // --- 신규 파일 생성 ---
             String originalFileName = file.getOriginalFilename();
-            // S3에 저장될 고유한 경로 생성 (사용자별로 폴더를 분리하면 관리하기 좋습니다)
             String s3FilePath = "user-codes/" + currentUser.getUserId() + "/" + UUID.randomUUID().toString() + "_" + originalFileName;
 
-            // S3Uploader를 통해 파일을 S3에 업로드합니다.
             String fileUrl = s3Uploader.upload(file, s3FilePath);
 
-            // 파일 메타데이터를 DB(CodeFile 테이블)에 저장합니다.
             CodeFile newCodeFile = CodeFile.builder()
                     .originalFileName(originalFileName)
                     .s3FilePath(s3FilePath)
@@ -51,34 +60,30 @@ public class FileService {
                     .build();
             codeFileRepository.save(newCodeFile);
 
-            // 프론트엔드에 새로 생성된 fileUUID와 파일 URL을 반환합니다.
             return new FileResponseDTO(newCodeFile.getFileUUID(), fileUrl);
 
         } else {
-
-            // 💡 수정(덮어쓰기) 로직
-            CodeFile existingCodeFile = codeFileRepository.findByFileUUID(fileUUID)
-                    .orElseThrow(() -> new EntityNotFoundException("File not found with UUID: " + fileUUID));
-
-            // (보안) 파일을 수정하려는 사용자가 실제 소유자인지 확인합니다.
-            if (!existingCodeFile.getUser().getUserId().equals(currentUser.getUserId())) {
-                throw new IllegalStateException("You do not have permission to modify this file.");
-            }
-
-            // S3Uploader에 "기존과 동일한 경로"를 전달하여 파일을 덮어쓰게 합니다.
+            // --- 기존 파일 수정 ---
+            CodeFile existingCodeFile = findAndVerifyOwner(fileUUID, userId);
             String fileUrl = s3Uploader.upload(file, existingCodeFile.getS3FilePath());
 
-            // DB 정보는 그대로 유지합니다. (수정 시간이 필요하다면 엔티티에 필드 추가 후 갱신)
-
-            // 프론트엔드에 기존 fileUUID와 갱신된 파일 URL을 반환합니다.
             return new FileResponseDTO(existingCodeFile.getFileUUID(), fileUrl);
         }
     }
 
+    // =================================================================================
+    // == 2. 파일 조회 (Read)
+    // =================================================================================
+
+    /**
+     * 특정 사용자가 소유한 모든 파일의 목록을 조회합니다.
+     * @param userId 조회할 사용자의 ID
+     * @return 파일 목록 DTO 리스트
+     */
     @Transactional(readOnly = true)
     public List<UserFileDTO> getUserFiles(String  userId) {
         User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
         List<CodeFile> userCodeFiles = codeFileRepository.findByUser(user);
 
@@ -89,4 +94,59 @@ public class FileService {
                         .build())
                 .collect(Collectors.toList());
     }
+
+    /**
+     * 특정 파일의 내용을 조회합니다.
+     * @param fileUUID 조회할 파일의 ID
+     * @param userId 요청을 보낸 사용자의 ID
+     * @return 파일의 원본 이름과 내용이 담긴 DTO
+     */
+    @Transactional(readOnly = true)
+    public FileContentResponse getFileContent(String fileUUID, String userId) {
+        CodeFile codeFile = findAndVerifyOwner(fileUUID, userId);
+        String content = s3Uploader.getFileContent(codeFile.getS3FilePath());
+
+        return FileContentResponse.builder()
+                .originalFileName(codeFile.getOriginalFileName())
+                .content(content)
+                .build();
+    }
+
+    // =================================================================================
+    // == 3. 파일 삭제 (Delete)
+    // =================================================================================
+
+    /**
+     * 특정 파일을 S3와 DB에서 모두 삭제합니다.
+     * @param fileUUID 삭제할 파일의 ID
+     * @param userId 요청을 보낸 사용자의 ID
+     */
+    @Transactional
+    public void deleteFile(String fileUUID, String userId) {
+        CodeFile codeFile = findAndVerifyOwner(fileUUID, userId);
+
+        s3Uploader.deleteFile(codeFile.getS3FilePath());
+        codeFileRepository.delete(codeFile);
+    }
+
+    // =================================================================================
+    // == Private Helper Methods
+    // =================================================================================
+
+    /**
+     * 파일 ID로 파일을 조회하고, 요청한 사용자가 파일의 소유주인지 검증하는 private 헬퍼 메소드
+     * @param fileUUID 조회할 파일의 ID
+     * @param userId 요청을 보낸 사용자의 ID
+     * @return 검증된 CodeFile 엔티티
+     */
+    private CodeFile findAndVerifyOwner(String fileUUID, String userId) {
+        CodeFile codeFile = codeFileRepository.findByFileUUID(fileUUID)
+                .orElseThrow(() -> new EntityNotFoundException("File not found with UUID: " + fileUUID));
+
+        if (!codeFile.getUser().getUserId().equals(userId)) {
+            throw new IllegalStateException("You do not have permission to access this file.");
+        }
+        return codeFile;
+    }
 }
+
