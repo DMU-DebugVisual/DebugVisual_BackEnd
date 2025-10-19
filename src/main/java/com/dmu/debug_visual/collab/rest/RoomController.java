@@ -27,7 +27,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RoomController {
 
-    // ✨ Controller는 이제 Service에만 의존합니다. 훨씬 깔끔해졌죠!
     private final RoomService roomService;
 
     // --- 1. 방 관리 ---

@@ -77,4 +77,9 @@ public class WebSocketRoomService {
         // sessionId에 해당하는 참여자 목록이 없거나, 있더라도 비어있으면 true를 반환합니다.
         return !sessionParticipants.containsKey(sessionId) || sessionParticipants.get(sessionId).isEmpty();
     }
+
+    public Set<String> getActiveParticipants(String roomId) {
+     WebSocketRoom activeRoom = findActiveRoomById(roomId);
+     return (activeRoom != null) ? activeRoom.getParticipants().keySet() : null;
+    }
 }
