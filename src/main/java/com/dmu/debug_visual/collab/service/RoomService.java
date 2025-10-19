@@ -5,24 +5,27 @@ import com.dmu.debug_visual.collab.domain.entity.CodeSession.SessionStatus;
 import com.dmu.debug_visual.collab.domain.entity.SessionParticipant;
 import com.dmu.debug_visual.collab.domain.repository.CodeSessionRepository;
 import com.dmu.debug_visual.collab.domain.repository.SessionParticipantRepository;
+import com.dmu.debug_visual.collab.rest.dto.*;
 import com.dmu.debug_visual.user.User;
 import com.dmu.debug_visual.user.UserRepository;
 import com.dmu.debug_visual.collab.domain.repository.RoomParticipantRepository;
 import com.dmu.debug_visual.collab.domain.repository.RoomRepository;
-import com.dmu.debug_visual.collab.rest.dto.CreateRoomRequest;
-import com.dmu.debug_visual.collab.rest.dto.CreateSessionRequest;
-import com.dmu.debug_visual.collab.rest.dto.RoomResponse;
-import com.dmu.debug_visual.collab.rest.dto.SessionResponse;
 import com.dmu.debug_visual.collab.domain.entity.Room;
 import com.dmu.debug_visual.collab.domain.entity.RoomParticipant;
 import jakarta.persistence.EntityNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessageSendingOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 협업 방과 세션의 생성, 관리, 권한 부여 등 핵심 비즈니스 로직을 처리하는 서비스
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RoomService {
@@ -32,6 +35,7 @@ public class RoomService {
     private final RoomParticipantRepository roomParticipantRepository;
     private final SessionParticipantRepository sessionParticipantRepository;
     private final CodeSessionRepository codeSessionRepository;
+    private final SimpMessageSendingOperations messagingTemplate;
 
     // 1. 방 관리 (Room Management)
     /**
@@ -83,13 +87,13 @@ public class RoomService {
             throw new IllegalArgumentException("Owner cannot kick themselves.");
         }
 
-        // 1. 방 참여자 목록에서 삭제
         RoomParticipant participantToRemove = roomParticipantRepository.findByRoomAndUser_UserId(room, targetUserId)
                 .orElseThrow(() -> new EntityNotFoundException("Participant not found in this room."));
         roomParticipantRepository.delete(participantToRemove);
 
-        // 2. 해당 방의 모든 세션 참여자 목록에서도 삭제
         sessionParticipantRepository.deleteAllByRoomIdAndUserId(roomId, targetUserId);
+
+        broadcastRoomState(roomId); // ✨ 강퇴 후 방송!
     }
 
     // 2. 세션 관리 (Session Management)
@@ -233,19 +237,52 @@ public class RoomService {
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
-        // 💡 이미 참여자인지 확인하여 중복 등록을 방지합니다.
         boolean isAlreadyParticipant = roomParticipantRepository.existsByRoomAndUser(room, user);
         if (isAlreadyParticipant) {
-            // 이미 참여자이면 아무것도 하지 않고 성공으로 간주
+            broadcastRoomState(roomId); // 이미 참여자여도 최신 상태를 한번 보내줌
             return;
         }
 
-        // 새로운 참여자로 등록 (기본 권한은 READ_ONLY)
         RoomParticipant newParticipant = RoomParticipant.builder()
                 .room(room)
                 .user(user)
                 .permission(RoomParticipant.Permission.READ_ONLY)
                 .build();
         roomParticipantRepository.save(newParticipant);
+
+        broadcastRoomState(roomId); // ✨ 참여자 추가 후 방송!
+    }
+
+    /**
+     * 특정 방의 최신 상태(방 이름, 방장, 참여자 목록)를 조회하여
+     * 해당 방의 시스템 채널로 브로드캐스팅합니다.
+     * @param roomId 상태를 방송할 방의 ID
+     */
+    @Transactional(readOnly = true)
+    public void broadcastRoomState(String roomId) {
+        Room dbRoom = roomRepository.findByRoomId(roomId)
+                .orElseThrow(() -> new RuntimeException("Room not found during state broadcast: " + roomId));
+
+        ParticipantInfo ownerInfo = ParticipantInfo.builder()
+                .userId(dbRoom.getOwner().getUserId())
+                .userName(dbRoom.getOwner().getName())
+                .build();
+
+        List<ParticipantInfo> participantInfos = dbRoom.getParticipants().stream()
+                .filter(p -> !p.getUser().getUserId().equals(dbRoom.getOwner().getUserId()))
+                .map(p -> ParticipantInfo.builder()
+                        .userId(p.getUser().getUserId())
+                        .userName(p.getUser().getName())
+                        .build())
+                .collect(Collectors.toList());
+
+        RoomStateUpdate roomStateUpdate = RoomStateUpdate.builder()
+                .roomName(dbRoom.getName())
+                .owner(ownerInfo)
+                .participants(participantInfos)
+                .build();
+
+        messagingTemplate.convertAndSend("/topic/room/" + roomId + "/system", roomStateUpdate);
+        log.info("Broadcasted room state update for room: {}", roomId);
     }
 }
