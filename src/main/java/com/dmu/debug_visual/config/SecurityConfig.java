@@ -54,18 +54,15 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/users/login", "/api/users/signup").permitAll()
                         .requestMatchers("/api/code/**").permitAll()
-                        // ★ (유지) GET 요청은 누구나 접근 가능
                         .requestMatchers(HttpMethod.GET, "/api/posts/**", "/api/comments/**").permitAll()
 
                         // 2. USER 또는 ADMIN 권한이 필요한 경로
-                        // ★ (수정) POST, PUT, DELETE 등 GET 외의 메서드는 USER 또는 ADMIN 권한 필요
                         .requestMatchers(HttpMethod.POST, "/api/posts/**", "/api/comments/**", "/api/notifications/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/posts/**", "/api/comments/**", "/api/notifications/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**", "/api/comments/**", "/api/notifications/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/posts/**", "/api/comments/**", "/api/notifications/**").hasAnyRole("USER", "ADMIN")
+                                .requestMatchers(HttpMethod.GET, "/api/notifications/**").hasAnyRole("USER", "ADMIN")
 
-                        // ★ (수정) GET을 제외한 나머지 /api/notifications/** 경로는 여기서 처리됩니다.
-                        .requestMatchers("/api/notifications/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/report/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/files/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/collab").hasAnyRole("USER", "ADMIN")
@@ -103,14 +100,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // 3. USER 또는 ADMIN 권한이 필요한 경로
-                        // ★ (수정) POST, PUT, DELETE 등 GET 외의 메서드는 USER 또는 ADMIN 권한 필요
                         .requestMatchers(HttpMethod.POST, "/api/posts/**", "/api/comments/**", "/api/notifications/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/posts/**", "/api/comments/**", "/api/notifications/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**", "/api/comments/**", "/api/notifications/**").hasAnyRole("USER", "ADMIN")
-                        .requestMatchers(HttpMethod.PATCH, "/api/posts/**", "/api/comments/**", "/api/notifications/**").hasAnyRole("USER", "ADMIN") // (PATCH도 명시)
+                        .requestMatchers(HttpMethod.PATCH, "/api/posts/**", "/api/comments/**", "/api/notifications/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/notifications/**").hasAnyRole("USER", "ADMIN")
 
-                        // ★ (수정) GET을 제외한 나머지 /api/notifications/** 경로는 여기서 처리됩니다.
-                        .requestMatchers("/api/notifications/**").hasAnyRole("USER", "ADMIN")
+
                         .requestMatchers("/api/report/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/files/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/collab").hasAnyRole("USER", "ADMIN")

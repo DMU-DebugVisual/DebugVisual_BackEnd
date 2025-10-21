@@ -25,8 +25,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
-@Tag(name = "알림 API", description = "사용자 알림 조회 및 읽음 처리 API") // 태그 이름에 이모지 추가
-@SecurityRequirement(name = "bearerAuth") // 모든 API에 JWT 인증 필요 명시
+@Tag(name = "알림 API", description = "사용자 알림 조회 및 읽음 처리 API")
 public class NotificationController {
 
     private final NotificationService notificationService;
@@ -69,7 +68,7 @@ public class NotificationController {
             @ApiResponse(responseCode = "403", description = "접근 권한 없음 (본인 알림 아님)", content = @Content),
             @ApiResponse(responseCode = "404", description = "해당 ID의 알림 없음", content = @Content)
     })
-    public ResponseEntity<Void> markAsRead( // 반환 타입 void 대신 ResponseEntity<Void> 사용
+    public ResponseEntity<Void> markAsRead(
                                             @Parameter(description = "읽음 처리할 알림 ID", required = true, example = "1")
                                             @PathVariable Long id,
                                             @Parameter(hidden = true) // Swagger UI에서 파라미터 숨김 처리
